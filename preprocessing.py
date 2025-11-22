@@ -2,7 +2,7 @@ import mediapipe as mp
 import numpy as np
 import cv2
 from pathlib import Path
-from affine_transform import estimate_affine_partial_2d
+from affine_transform import estimate_affine_partial_2d, warp_affine
 
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
@@ -12,7 +12,7 @@ face_mesh = mp_face_mesh.FaceMesh(
     min_detection_confidence=0.9
 )
 
-def normalization(image_bgr: np.ndarray) -> dict | None:
+def normalization(image_bgr: np.ndarray, use_opencv_warp_affine: bool = True) -> dict | None:
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     results = face_mesh.process(image_rgb)
     
@@ -57,14 +57,21 @@ def normalization(image_bgr: np.ndarray) -> dict | None:
     affine_matrix = estimate_affine_partial_2d(src_points, dst_points)
     affine_matrix = np.array(affine_matrix)
 
-    normalized_image = cv2.warpAffine(
-        image_bgr, 
-        affine_matrix, 
-        (256, 256),
-        flags=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0)
-    )
+    if use_opencv_warp_affine:
+        normalized_image = cv2.warpAffine(
+            image_bgr, 
+            affine_matrix, 
+            (256, 256),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=(0, 0, 0)
+        )
+
+    else:
+        normalized_image = np.array(
+            warp_affine(
+                image_bgr, affine_matrix, (256, 256))
+            , dtype=np.uint8)
 
     ones = np.ones((pixel_landmarks.shape[0], 1))
     homogeneous_landmarks = np.hstack([pixel_landmarks, ones])  # (478, 3)

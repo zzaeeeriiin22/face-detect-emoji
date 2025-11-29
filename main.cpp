@@ -18,8 +18,8 @@ int main() {
     };
 
     // 2. 어파인 추정 실행
-    AffineTransform M{};
-    bool ok = estimateAffinePartial2D(src_points, dst_points, M);
+    double matrix_2x3[2][3];
+    bool ok = estimateAffinePartial2D(src_points, dst_points, matrix_2x3);
 
     if (!ok) {
         std::cerr << "estimateAffinePartial2D failed (den == 0 or invalid input)\n";
@@ -29,30 +29,33 @@ int main() {
     // 3. 결과 출력 (네가 가진 기대 행렬과 비교)
     std::cout << std::fixed << std::setprecision(15);
 
-    std::cout << "=== Estimated Affine Matrix ===\n";
-    std::cout << "[ " << M.m00 << ", " << M.m01 << ", " << M.m02 << " ]\n";
-    std::cout << "[ " << M.m10 << ", " << M.m11 << ", " << M.m12 << " ]\n\n";
+    // std::cout << "=== Estimated Affine Matrix ===\n";
+    // std::cout << "[ " << M.m00 << ", " << M.m01 << ", " << M.m02 << " ]\n";
+    // std::cout << "[ " << M.m10 << ", " << M.m11 << ", " << M.m12 << " ]\n\n";
 
-    AffineTransform expected {
-        0.5972291217278474, -0.001767595332210985, -63.72434718457612,
-        0.001767595332210985,  0.5972291217278474, -131.59747705489787
+    // AffineTransform expected {
+    //     0.5972291217278474, -0.001767595332210985, -63.72434718457612,
+    //     0.001767595332210985,  0.5972291217278474, -131.59747705489787
+    // };
+
+    double expected[2][3] = {
+        {0.5972291217278474, -0.001767595332210985, -63.72434718457612},
+        {0.001767595332210985,  0.5972291217278474, -131.59747705489787}
     };
 
     std::cout << "=== Expected Affine Matrix ===\n";
-    std::cout << "[ " << expected.m00 << ", " << expected.m01 << ", " << expected.m02 << " ]\n";
-    std::cout << "[ " << expected.m10 << ", " << expected.m11 << ", " << expected.m12 << " ]\n\n";
+    std::cout << "[ " << expected[0][0] << ", " << expected[0][1] << ", " << expected[0][2] << " ]\n";
+    std::cout << "[ " << expected[1][0] << ", " << expected << " ]\n";
 
-    // 차이도 한 번 출력
     std::cout << "=== Difference (Estimated - Expected) ===\n";
     std::cout << "[ "
-              << (M.m00 - expected.m00) << ", "
-              << (M.m01 - expected.m01) << ", "
-              << (M.m02 - expected.m02) << " ]\n";
+              << (matrix_2x3[0][0] - expected[0][0]) << ", "
+              << (matrix_2x3[0][1] - expected[0][1]) << ", "
+              << (matrix_2x3[0][2] - expected[0][2]) << " ]\n";
     std::cout << "[ "
-              << (M.m10 - expected.m10) << ", "
-              << (M.m11 - expected.m11) << ", "
-              << (M.m12 - expected.m12) << " ]\n\n";
-
+              << (matrix_2x3[1][0] - expected[1][0]) << ", "
+              << (matrix_2x3[1][1] - expected[1][1]) << ", "
+              << (matrix_2x3[1][2] - expected[1][2]) << " ]\n\n";
     
     // 4. warpAffine 더미 테스트 (간단한 그라디언트 이미지)
     // const int src_w = 256;

@@ -8,16 +8,6 @@ struct Point {
     double y;
 };
 
-struct AffineTransform {
-    double m00, m01, m02;
-    double m10, m11, m12;
-
-    bool operator==(const AffineTransform& other) const {
-        return m00 == other.m00 && m01 == other.m01 && m02 == other.m02 &&
-               m10 == other.m10 && m11 == other.m11 && m12 == other.m12;
-    }
-};
-
 struct Image {
     int width;
     int height;

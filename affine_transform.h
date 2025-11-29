@@ -6,5 +6,5 @@
 bool estimateAffinePartial2D(
     const std::vector<Point>& src_points,
     const std::vector<Point>& dst_points,
-    AffineTransform& outM
+    double matrix_2x3[][3]
 );

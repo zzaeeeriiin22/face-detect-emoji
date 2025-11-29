@@ -1,31 +1,31 @@
 #include <cassert>
 #include <tuple>
+#include "geometry.h"
 
-#include "affine_transform.h"
-#include "geometry_types.h"
+namespace geo {
 
-std::tuple<double, double> meanXY(const std::vector<Point>& pts) {
+Point mean(const std::vector<Point>& pts) {
     if (pts.empty()) {
         return {0.0, 0.0};
     }
 
-    double sum_x = 0.0;
-    double sum_y = 0.0;
+    float sum_x = 0.0;
+    float sum_y = 0.0;
 
     for (const auto& p : pts) {
         sum_x += p.x;
         sum_y += p.y;
     }
 
-    double mean_x = sum_x / static_cast<double>(pts.size());
-    double mean_y = sum_y / static_cast<double>(pts.size());
+    float mean_x = sum_x / static_cast<float>(pts.size());
+    float mean_y = sum_y / static_cast<float>(pts.size());
 
-    return {mean_x, mean_y};
+    return Point{mean_x, mean_y};
 }
 
 std::vector<Point> transformLandmarks(
     const std::vector<Point>& landmarks,
-    const double matrix_2x3[][3]
+    const float matrix_2x3[][3]
 ) {
     assert(matrix_2x3 != nullptr);
 
@@ -55,26 +55,26 @@ std::vector<Point> transformLandmarks(
 bool estimateAffinePartial2D(
     const std::vector<Point>& src_points,
     const std::vector<Point>& dst_points,
-    double matrix_2x3[][3]
+    float matrix_2x3[][3]
 ) {
     assert(src_points.size() == dst_points.size());
     assert(src_points.size() >= 2);
 
     int n = src_points.size();
 
-    auto [src_cx, src_cy] = meanXY(src_points);
-    auto [dst_cx, dst_cy] = meanXY(dst_points);
+    Point src_center = mean(src_points);
+    Point dst_center = mean(dst_points);
 
-    double num_a = 0.0;
-    double num_b = 0.0;
-    double den = 0.0;
+    float num_a = 0.0;
+    float num_b = 0.0;
+    float den = 0.0;
 
     for (int i = 0; i < n; i++) {
         // 표준화
-        double sx = src_points[i].x - src_cx;
-        double sy = src_points[i].y - src_cy;
-        double dx = dst_points[i].x - dst_cx;
-        double dy = dst_points[i].y - dst_cy;
+        float sx = src_points[i].x - src_center.x;
+        float sy = src_points[i].y - src_center.y;
+        float dx = dst_points[i].x - dst_center.x;
+        float dy = dst_points[i].y - dst_center.y;
 
         // 회전 및 스케일 추정
         // cos 선분 (vector 내적)
@@ -93,13 +93,13 @@ bool estimateAffinePartial2D(
         return false;
     }
 
-    double a = num_a / den;
-    double b = num_b / den;
+    float a = num_a / den;
+    float b = num_b / den;
 
     // 평행 이동
-    // (a * src_cx - b * src_cy): 위에서 구한 a,b로 회전, 스케일 적용
-    double tx = dst_cx - (a * src_cx - b * src_cy);
-    double ty = dst_cy - (b * src_cx + a * src_cy);
+    // (a * src_center.x - b * src_center.y): 위에서 구한 a,b로 회전, 스케일 적용
+    float tx = dst_center.x - (a * src_center.x - b * src_center.y);
+    float ty = dst_center.y - (b * src_center.x + a * src_center.y);
 
     matrix_2x3[0][0] = a;
     matrix_2x3[0][1] = -b;
@@ -110,3 +110,5 @@ bool estimateAffinePartial2D(
 
     return true;
 }
+
+} // namespace geometry

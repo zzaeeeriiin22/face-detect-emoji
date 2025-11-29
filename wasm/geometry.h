@@ -1,7 +1,23 @@
 #pragma once
 
 #include <vector>
-#include "geometry_types.h"
+
+namespace geo {
+
+struct Point {
+    float x;
+    float y;
+};
+
+static_assert(sizeof(Point) == 8, "Point must be 8 bytes");
+
+/* 
+ * Calculates the mean of a set of 2D points.
+ *
+ * @param pts: Input vector of Point structures representing the points.
+ * @return A Point structure representing the mean of the points.
+ */
+Point mean(const std::vector<Point>& pts);
 
 /* 
  * Applies a 2x3 affine transformation matrix to a set of 2D points.
@@ -12,7 +28,7 @@
  */
 std::vector<Point> transformLandmarks(
     const std::vector<Point>& landmarks,
-    const double matrix_2x3[][3]
+    const float matrix_2x3[][3]
 );
 
 /* 
@@ -28,5 +44,7 @@ std::vector<Point> transformLandmarks(
 bool estimateAffinePartial2D(
     const std::vector<Point>& src_points,
     const std::vector<Point>& dst_points,
-    double matrix_2x3[][3]
+    float matrix_2x3[][3]
 );
+
+} // namespace geometry

@@ -208,8 +208,90 @@
                 <span class="stat-label">랜드마크 수</span>
                 <span class="stat-value" id="landmarkCount">0</span>
             </div>
+            <div class="stat-item">
+                <span class="stat-label">감정</span>
+                <span class="stat-value" id="emotion">-</span>
+            </div>
         </div>
     </div>
+
+    <script src="./wasm/expression_recognition.js"></script>
+    <script>
+        let expressionModule = null;
+        let wasmReady = false;
+
+        // WASM 모듈 초기화
+        createExpressionRecognitionModule().then(function(Module) {
+            expressionModule = Module;
+            wasmReady = true;
+            console.log('WASM 모듈 초기화 완료');
+        }).catch(function(error) {
+            console.error('WASM 모듈 로드 실패:', error);
+        });
+
+        function processFrame(imageData, faceLandmarks) {
+            if (!wasmReady || !expressionModule) {
+                return null;
+            }
+
+            if (!faceLandmarks || faceLandmarks.length === 0) {
+                return null;
+            }
+
+            if (!imageData || !imageData.data) {
+                return null;
+            }
+
+            const width = imageData.width;
+            const height = imageData.height;
+            const numLandmarks = faceLandmarks.length;
+
+            // RGBA 이미지 데이터를 메모리에 복사
+            const imageSize = width * height * 4;
+            const imagePtr = expressionModule._malloc(imageSize);
+            expressionModule.HEAPU8.set(imageData.data, imagePtr);
+
+            // 랜드마크를 [x, y, x, y, ...] 형식으로 변환
+            const landmarksFlat = new Float32Array(numLandmarks * 2);
+            for (let i = 0; i < numLandmarks; i++) {
+                landmarksFlat[i * 2] = faceLandmarks[i].x;
+                landmarksFlat[i * 2 + 1] = faceLandmarks[i].y;
+            }
+
+            // 랜드마크 데이터를 메모리에 복사
+            const landmarksSize = numLandmarks * 2 * Float32Array.BYTES_PER_ELEMENT;
+            const landmarksPtr = expressionModule._malloc(landmarksSize);
+            expressionModule.HEAPF32.set(landmarksFlat, landmarksPtr / Float32Array.BYTES_PER_ELEMENT);
+
+            // 출력 버퍼 할당 (OUTPUT_DIM = 4로 가정)
+            const outputSize = 4 * Float32Array.BYTES_PER_ELEMENT;
+            const outputPtr = expressionModule._malloc(outputSize);
+
+            try {
+                // WASM 함수 호출
+                expressionModule.ccall(
+                    'process_frame',
+                    null,
+                    ['number', 'number', 'number', 'number', 'number', 'number'],
+                    [imagePtr, width, height, landmarksPtr, numLandmarks * 2, outputPtr]
+                );
+
+                // 결과 읽기
+                const outputScores = new Float32Array(4);
+                outputScores.set(expressionModule.HEAPF32.subarray(
+                    outputPtr / Float32Array.BYTES_PER_ELEMENT,
+                    outputPtr / Float32Array.BYTES_PER_ELEMENT + 4
+                ));
+
+                return outputScores;
+            } finally {
+                // 메모리 해제
+                expressionModule._free(imagePtr);
+                expressionModule._free(landmarksPtr);
+                expressionModule._free(outputPtr);
+            }
+        }
+    </script>
 
     <script type="module">
         import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
@@ -226,6 +308,7 @@
         let lastVideoTime = -1;
         let fpsHistory = [];
         let latencyHistory = [];
+        let lastFrameTime = performance.now();
 
         // MediaPipe 초기화
         async function initMediaPipe() {
@@ -276,25 +359,57 @@
 
         // 얼굴 감지 및 렌더링
         function detectFaces() {
-            const startTime = performance.now();
-
+            const currentTime = performance.now();
+            const frameTime = currentTime - lastFrameTime;
+            lastFrameTime = currentTime;
+            
+            // FPS 계산
+            if (frameTime > 0) {
+                const fps = 1000 / frameTime;
+                fpsHistory.push(fps);
+                if (fpsHistory.length > 30) fpsHistory.shift();
+                const avgFps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
+                document.getElementById('fps').textContent = avgFps.toFixed(1);
+            }
+            
             if (video.currentTime !== lastVideoTime) {
                 lastVideoTime = video.currentTime;
                 
-                const results = faceLandmarker.detectForVideo(video, startTime);
-                
-                const endTime = performance.now();
-                const latency = endTime - startTime;
-                
-                // 통계 업데이트
-                updateStats(latency, results);
+                const results = faceLandmarker.detectForVideo(video, currentTime);
                 
                 // 캔버스 초기화
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                // 랜드마크 그리기
+                // 비디오 프레임을 캔버스에 그리기
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // 랜드마크 그리기 및 감정 인식
                 if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+                    // 이미지 데이터 가져오기
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // WASM으로 감정 인식 수행 (processFrame 실행 시간 측정)
+                    const processStartTime = performance.now();
+                    const outputScores = processFrame(imageData, results.faceLandmarks[0]);
+                    const processEndTime = performance.now();
+                    const processLatency = processEndTime - processStartTime;
+                    
+                    // processFrame 레이턴시 업데이트
+                    updateProcessFrameLatency(processLatency, results);
+                    
+                    if (outputScores) {
+                        // 감정 결과를 UI에 표시
+                        const emotions = ['angry', 'happy', 'neutral', 'surprise'];
+                        const maxIndex = outputScores.indexOf(Math.max(...outputScores));
+                        document.getElementById('emotion').textContent = emotions[maxIndex];
+                    }
+                    
+                    // 랜드마크 그리기 (비디오 위에)
                     drawLandmarks(results.faceLandmarks[0]);
+                } else {
+                    document.getElementById('emotion').textContent = '-';
+                    // 얼굴이 없을 때는 레이턴시를 0으로 업데이트
+                    updateProcessFrameLatency(0, results);
                 }
             }
 
@@ -335,16 +450,14 @@
             }
         }
 
-        // 통계 업데이트
-        function updateStats(latency, results) {
+        // processFrame 레이턴시 및 통계 업데이트
+        function updateProcessFrameLatency(latency, results) {
             latencyHistory.push(latency);
             if (latencyHistory.length > 30) latencyHistory.shift();
             
             const avgLatency = latencyHistory.reduce((a, b) => a + b, 0) / latencyHistory.length;
-            const fps = 1000 / avgLatency;
             
             document.getElementById('latency').textContent = avgLatency.toFixed(1) + ' ms';
-            document.getElementById('fps').textContent = fps.toFixed(1);
             document.getElementById('faceCount').textContent = results.faceLandmarks ? results.faceLandmarks.length : 0;
             document.getElementById('landmarkCount').textContent = results.faceLandmarks && results.faceLandmarks.length > 0 ? results.faceLandmarks[0].length : 0;
         }
@@ -370,6 +483,7 @@
             document.getElementById('latency').textContent = '0 ms';
             document.getElementById('faceCount').textContent = '0';
             document.getElementById('landmarkCount').textContent = '0';
+            document.getElementById('emotion').textContent = '-';
             
             fpsHistory = [];
             latencyHistory = [];

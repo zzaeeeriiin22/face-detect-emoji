@@ -263,32 +263,28 @@
             const landmarksPtr = expressionModule._malloc(landmarksSize);
             expressionModule.HEAPF32.set(landmarksFlat, landmarksPtr / Float32Array.BYTES_PER_ELEMENT);
 
-            // 출력 버퍼 할당 (OUTPUT_DIM = 4로 가정)
-            const outputSize = 4 * Float32Array.BYTES_PER_ELEMENT;
-            const outputPtr = expressionModule._malloc(outputSize);
-
             try {
-                // WASM 함수 호출
+                // WASM 함수 호출 (이미지가 in-place로 수정됨)
                 expressionModule.ccall(
                     'process_frame',
                     null,
-                    ['number', 'number', 'number', 'number', 'number', 'number'],
-                    [imagePtr, width, height, landmarksPtr, numLandmarks * 2, outputPtr]
+                    ['number', 'number', 'number', 'number', 'number'],
+                    [imagePtr, width, height, landmarksPtr, numLandmarks * 2]
                 );
 
-                // 결과 읽기
-                const outputScores = new Float32Array(4);
-                outputScores.set(expressionModule.HEAPF32.subarray(
-                    outputPtr / Float32Array.BYTES_PER_ELEMENT,
-                    outputPtr / Float32Array.BYTES_PER_ELEMENT + 4
-                ));
+                // 수정된 이미지 데이터를 메모리에서 읽기
+                const processedImageData = new Uint8ClampedArray(imageSize);
+                processedImageData.set(expressionModule.HEAPU8.subarray(imagePtr, imagePtr + imageSize));
 
-                return outputScores;
+                // ImageData 객체 생성
+                const resultImageData = new ImageData(processedImageData, width, height);
+                
+                return resultImageData;
+
             } finally {
                 // 메모리 해제
                 expressionModule._free(imagePtr);
                 expressionModule._free(landmarksPtr);
-                expressionModule._free(outputPtr);
             }
         }
     </script>
@@ -390,21 +386,19 @@
                     
                     // WASM으로 감정 인식 수행 (processFrame 실행 시간 측정)
                     const processStartTime = performance.now();
-                    const outputScores = processFrame(imageData, results.faceLandmarks[0]);
+                    const processedImageData = processFrame(imageData, results.faceLandmarks[0]);
                     const processEndTime = performance.now();
                     const processLatency = processEndTime - processStartTime;
                     
                     // processFrame 레이턴시 업데이트
                     updateProcessFrameLatency(processLatency, results);
                     
-                    if (outputScores) {
-                        // 감정 결과를 UI에 표시
-                        const emotions = ['angry', 'happy', 'neutral', 'surprise'];
-                        const maxIndex = outputScores.indexOf(Math.max(...outputScores));
-                        document.getElementById('emotion').textContent = emotions[maxIndex];
+                    // 처리된 이미지를 canvas에 그리기
+                    if (processedImageData) {
+                        ctx.putImageData(processedImageData, 0, 0);
                     }
                     
-                    // 랜드마크 그리기 (비디오 위에)
+                    // 랜드마크 그리기 (처리된 이미지 위에)
                     drawLandmarks(results.faceLandmarks[0]);
                 } else {
                     document.getElementById('emotion').textContent = '-';

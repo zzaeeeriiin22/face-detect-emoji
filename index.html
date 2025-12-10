@@ -185,6 +185,19 @@
         <div class="controls">
             <button id="startBtn" class="btn">카메라 시작</button>
             <button id="stopBtn" class="btn" disabled>카메라 중지</button>
+            <div style="margin-top: 16px;">
+                <label style="color: var(--color-text); font-size: 14px; margin-right: 12px;">
+                    백엔드:
+                </label>
+                <label style="margin-right: 16px; color: var(--color-text);">
+                    <input type="radio" name="backend" value="wasm" checked style="margin-right: 4px;">
+                    WASM
+                </label>
+                <label style="color: var(--color-text);">
+                    <input type="radio" name="backend" value="js" style="margin-right: 4px;">
+                    JavaScript
+                </label>
+            </div>
         </div>
 
         <div class="stats">
@@ -212,84 +225,214 @@
                 <span class="stat-label">감정</span>
                 <span class="stat-value" id="emotion">-</span>
             </div>
+            <div class="stat-item">
+                <span class="stat-label">백엔드</span>
+                <span class="stat-value" id="backendType">WASM</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">처리 시간 (평균)</span>
+                <span class="stat-value" id="processingTime">0 ms</span>
+            </div>
         </div>
     </div>
 
     <script src="./wasm/expression_recognition.js"></script>
-    <script>
-        let expressionModule = null;
-        let wasmReady = false;
+    <script type="module">
+        import { processFrameJS, initJSBackend } from './js/expression_backend.js';
+        
+        // 전역 객체로 관리
+        window.appState = {
+            expressionModule: null,
+            wasmReady: false,
+            jsBackendReady: false,
+            currentBackend: 'wasm',
+            // WASM 메모리 풀링
+            wasmMemory: {
+                imagePtr: null,
+                imageSize: 0,
+                landmarksPtr: null,
+                landmarksSize: 0,
+                maxFaces: 5,  // MediaPipe 설정과 동일
+                maxLandmarks: 478  // MediaPipe face landmark 수
+            }
+        };
+        
+        // JS Backend 초기화
+        try {
+            window.appState.jsBackendReady = initJSBackend();
+            console.log('JS Backend 초기화 완료');
+        } catch (error) {
+            console.error('JS Backend 초기화 실패:', error);
+        }
+
+        // WASM 메모리 할당/해제 헬퍼 함수
+        function allocateWASMMemory(width, height, numFaces, numLandmarks) {
+            const mem = window.appState.wasmMemory;
+            const Module = window.appState.expressionModule;
+            
+            if (!Module) return false;
+            
+            // 이미지 메모리 할당/재할당
+            const imageSize = width * height * 4;
+            if (!mem.imagePtr || mem.imageSize < imageSize) {
+                // 기존 메모리 해제
+                if (mem.imagePtr) {
+                    Module._free(mem.imagePtr);
+                }
+                // 새로운 메모리 할당
+                mem.imagePtr = Module._malloc(imageSize);
+                mem.imageSize = imageSize;
+                if (!mem.imagePtr) {
+                    console.error('이미지 메모리 할당 실패');
+                    return false;
+                }
+            }
+            
+            // 랜드마크 메모리 할당/재할당 (최대 크기로 미리 할당)
+            const maxLandmarksSize = mem.maxFaces * mem.maxLandmarks * 2 * Float32Array.BYTES_PER_ELEMENT;
+            if (!mem.landmarksPtr || mem.landmarksSize < maxLandmarksSize) {
+                // 기존 메모리 해제
+                if (mem.landmarksPtr) {
+                    Module._free(mem.landmarksPtr);
+                }
+                // 최대 크기로 할당 (재사용을 위해)
+                mem.landmarksPtr = Module._malloc(maxLandmarksSize);
+                mem.landmarksSize = maxLandmarksSize;
+                if (!mem.landmarksPtr) {
+                    console.error('랜드마크 메모리 할당 실패');
+                    // 이미지 메모리는 이미 할당되었으므로 해제
+                    if (mem.imagePtr) {
+                        Module._free(mem.imagePtr);
+                        mem.imagePtr = null;
+                    }
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        // WASM 메모리 해제 함수
+        function freeWASMMemory() {
+            const mem = window.appState.wasmMemory;
+            const Module = window.appState.expressionModule;
+            
+            if (Module) {
+                if (mem.imagePtr) {
+                    Module._free(mem.imagePtr);
+                    mem.imagePtr = null;
+                }
+                if (mem.landmarksPtr) {
+                    Module._free(mem.landmarksPtr);
+                    mem.landmarksPtr = null;
+                }
+            }
+            
+            mem.imageSize = 0;
+            mem.landmarksSize = 0;
+        }
 
         // WASM 모듈 초기화
         createExpressionRecognitionModule().then(function(Module) {
-            expressionModule = Module;
-            wasmReady = true;
+            window.appState.expressionModule = Module;
+            window.appState.wasmReady = true;
             console.log('WASM 모듈 초기화 완료');
         }).catch(function(error) {
             console.error('WASM 모듈 로드 실패:', error);
         });
+        
+        // 백엔드 선택 이벤트 리스너
+        document.querySelectorAll('input[name="backend"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const oldBackend = window.appState.currentBackend;
+                window.appState.currentBackend = this.value;
+                document.getElementById('backendType').textContent = 
+                    window.appState.currentBackend === 'wasm' ? 'WASM' : 'JavaScript';
+                console.log('백엔드 변경:', window.appState.currentBackend);
+                
+                // WASM에서 다른 백엔드로 변경 시 메모리 정리 (선택적)
+                // if (oldBackend === 'wasm' && this.value !== 'wasm') {
+                //     freeWASMMemory();
+                // }
+            });
+        });
 
-        function processFrame(imageData, faces) {
-            if (!wasmReady || !expressionModule) {
-                return null;
+        function processFrameWASM(imageData, faces) {
+            if (!window.appState.wasmReady || !window.appState.expressionModule) {
+                return { latency: 0, imageData: null };
             }
 
             if (!faces || faces.length === 0) {
-                return null;
+                return { latency: 0, imageData: null };
             }
 
             if (!imageData || !imageData.data) {
-                return null;
+                return { latency: 0, imageData: null };
             }
 
             const width = imageData.width;
             const height = imageData.height;
-            const numFaces = faces.length; // 얼굴 갯수
-            const numLandmarks = faces[0].length; // 랜드마크 갯수
+            const numFaces = faces.length;
+            const numLandmarks = faces[0].length;
 
-            // RGBA 이미지 데이터를 메모리에 복사
+            // 메모리 풀에서 할당 (필요시에만 재할당)
+            if (!allocateWASMMemory(width, height, numFaces, numLandmarks)) {
+                return { latency: 0, imageData: null };
+            }
+
+            const mem = window.appState.wasmMemory;
+            const Module = window.appState.expressionModule;
             const imageSize = width * height * 4;
-            const imagePtr = expressionModule._malloc(imageSize);
-            expressionModule.HEAPU8.set(imageData.data, imagePtr);
 
-            // 랜드마크를 [x, y, x, y, ...] 형식으로 변환
-            const landmarksFlat = new Float32Array(numFaces * numLandmarks * 2);
+            // RGBA 이미지 데이터를 WASM 메모리에 복사 (기존 할당된 메모리 사용)
+            Module.HEAPU8.set(imageData.data, mem.imagePtr);
+
+            // 랜드마크 데이터를 메모리에 직접 작성 (기존 할당된 메모리 사용)
+            const landmarksHeap = Module.HEAPF32;
+            const landmarksOffset = mem.landmarksPtr / Float32Array.BYTES_PER_ELEMENT;
+            
+            let idx = 0;
             for (let faceIndex = 0; faceIndex < numFaces; faceIndex++) {
+                const face = faces[faceIndex];
                 for (let landmarkIndex = 0; landmarkIndex < numLandmarks; landmarkIndex++) {
-                    landmarksFlat[faceIndex * numLandmarks * 2 + landmarkIndex * 2] = faces[faceIndex][landmarkIndex].x;
-                    landmarksFlat[faceIndex * numLandmarks * 2 + landmarkIndex * 2 + 1] = faces[faceIndex][landmarkIndex].y;
+                    const landmark = face[landmarkIndex];
+                    landmarksHeap[landmarksOffset + idx++] = landmark.x;
+                    landmarksHeap[landmarksOffset + idx++] = landmark.y;
                 }
             }
 
-            // 랜드마크 데이터를 메모리에 복사
-            const landmarksSize = numFaces * numLandmarks * 2 * Float32Array.BYTES_PER_ELEMENT;
-            const landmarksPtr = expressionModule._malloc(landmarksSize);
-            expressionModule.HEAPF32.set(landmarksFlat, landmarksPtr / Float32Array.BYTES_PER_ELEMENT);
+            // ccall에 대해서만 레이턴시 측정
+            const ccallStart = performance.now();
+            Module.ccall(
+                'process_frame',
+                null,
+                ['number', 'number', 'number', 'number', 'number'],
+                [mem.imagePtr, width, height, mem.landmarksPtr, numFaces]
+            );
+            const ccallLatency = performance.now() - ccallStart;
 
-            try {
-                // WASM 함수 호출 (이미지가 in-place로 수정됨)
-                expressionModule.ccall(
-                    'process_frame',
-                    null,
-                    ['number', 'number', 'number', 'number', 'number'],
-                    [imagePtr, width, height, landmarksPtr, numFaces]
-                );
-
-                // 수정된 이미지 데이터를 메모리에서 읽기
-                const processedImageData = new Uint8ClampedArray(imageSize);
-                processedImageData.set(expressionModule.HEAPU8.subarray(imagePtr, imagePtr + imageSize));
-
-                // ImageData 객체 생성
-                const resultImageData = new ImageData(processedImageData, width, height);
-                
-                return resultImageData;
-
-            } finally {
-                // 메모리 해제
-                expressionModule._free(imagePtr);
-                expressionModule._free(landmarksPtr);
+            // WASM 메모리에서 직접 subarray 사용 (복사 최소화)
+            const processedData = Module.HEAPU8.subarray(mem.imagePtr, mem.imagePtr + imageSize);
+            
+            // 기존 imageData.data를 직접 수정 (새로운 ImageData 생성 오버헤드 제거)
+            imageData.data.set(processedData);
+            
+            return { latency: ccallLatency, imageData: imageData };
+        }
+        
+        // 백엔드에 따라 적절한 함수 호출
+        function processFrame(imageData, faces) {
+            if (window.appState.currentBackend === 'wasm') {
+                return processFrameWASM(imageData, faces);
+            } else {
+                // JS 백엔드는 emotion만 반환하므로 별도 처리
+                return { latency: 0, imageData: null };
             }
         }
+        
+        // Export to window for non-module scripts
+        window.processFrame = processFrame;
+        window.processFrameJS = processFrameJS;
     </script>
 
     <script type="module">
@@ -387,21 +530,34 @@
                     // 이미지 데이터 가져오기
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     
-                    // WASM으로 감정 인식 수행 (processFrame 실행 시간 측정)
-                    const processStartTime = performance.now();
-                    const processedImageData = processFrame(imageData, results.faceLandmarks);
-                    const processEndTime = performance.now();
-                    const processLatency = processEndTime - processStartTime;
+                    let ccallLatency = 0;
                     
-                    // processFrame 레이턴시 업데이트
-                    updateProcessFrameLatency(processLatency, results);
-                    
-                    // 처리된 이미지를 canvas에 그리기
-                    if (processedImageData) {
-                        ctx.putImageData(processedImageData, 0, 0);
+                    // 백엔드에 따라 처리
+                    if (window.appState && window.appState.currentBackend === 'wasm') {
+                        // WASM 백엔드: 이미지 오버레이 포함
+                        const result = window.processFrame(imageData, results.faceLandmarks);
+                        if (result.imageData) {
+                            ctx.putImageData(result.imageData, 0, 0);
+                        }
+                        ccallLatency = result.latency;
+                    } else if (window.appState && window.appState.currentBackend === 'js' && window.appState.jsBackendReady) {
+                        // JS 백엔드: 감정 인식 및 emoji 오버레이
+                        const jsStart = performance.now();
+                        const emotionResult = window.processFrameJS(imageData, results.faceLandmarks);
+                        ccallLatency = performance.now() - jsStart;
+                        
+                        if (emotionResult) {
+                            document.getElementById('emotion').textContent = 
+                                emotionResult.emotion + ' (' + emotionResult.confidence.toFixed(2) + ')';
+                            // emoji가 오버레이된 imageData를 캔버스에 다시 그리기
+                            ctx.putImageData(imageData, 0, 0);
+                        }
                     }
                     
-                    // 랜드마크 그리기 (처리된 이미지 위에)
+                    // ccall 레이턴시 업데이트
+                    updateProcessFrameLatency(ccallLatency, results);
+                    
+                    // 랜드마크 그리기
                     drawLandmarks(results.faceLandmarks);
                 } else {
                     document.getElementById('emotion').textContent = '-';
@@ -457,6 +613,7 @@
             const avgLatency = latencyHistory.reduce((a, b) => a + b, 0) / latencyHistory.length;
             
             document.getElementById('latency').textContent = avgLatency.toFixed(1) + ' ms';
+            document.getElementById('processingTime').textContent = avgLatency.toFixed(1) + ' ms';
             document.getElementById('faceCount').textContent = results.faceLandmarks ? results.faceLandmarks.length : 0;
             document.getElementById('landmarkCount').textContent = results.faceLandmarks && results.faceLandmarks.length > 0 ? results.faceLandmarks[0].length : 0;
         }
@@ -486,6 +643,9 @@
             
             fpsHistory = [];
             latencyHistory = [];
+            
+            // WASM 메모리 정리 (선택적 - 재사용을 위해 유지할 수도 있음)
+            // freeWASMMemory();
         }
 
         function showError(message) {

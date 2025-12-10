@@ -8,7 +8,13 @@ emcc main.cpp geometry.cpp predict.cpp -o expression_recognition.js \
   -s MODULARIZE=1 \
   -s EXPORT_NAME='createExpressionRecognitionModule' \
   -O3 \
-  -msimd128
+  -flto \
+  -ffast-math \
+  -msimd128 \
+  -msse4.2 \
+  -fno-exceptions \
+  -fno-rtti \
+  -DNDEBUG
 
 if [ $? -ne 0 ]; then
     echo "Failed to build expression_recognition.js"

@@ -82,4 +82,15 @@ bool overlayWarpAffine(
     const std::vector<Point>& pts_canvas,
     const std::vector<Point>& pts_src);
 
+
+/* 
+ * Calculates the distance between two points.
+ *
+ * @param p1: First point.
+ * @param p2: Second point.
+ * @return The distance between the two points.
+ */
+float getDistance(const Point& p1, const Point& p2);
+
+
 }  // namespace geo

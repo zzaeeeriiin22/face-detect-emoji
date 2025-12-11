@@ -82,6 +82,11 @@ function meanPoint(points) {
     return { x: sumX / points.length, y: sumY / points.length };
 }
 
+// Calculate distance between two points
+function getDistance(p1, p2) {
+    return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+}
+
 // Estimate partial affine transformation (similarity transform)
 function estimateAffinePartial2D(srcPoints, dstPoints) {
     const srcCenter = meanPoint(srcPoints);
@@ -267,7 +272,7 @@ function overlayWarpAffine(canvasData, canvasWidth, canvasHeight, srcData, srcWi
 }
 
 // Process frame with JS backend
-export function processFrameJS(imageData, faces) {
+export function processFrameJS(imageData, faces, aroundFaceCount = 0) {
     if (!faces || faces.length === 0) {
         return null;
     }
@@ -279,6 +284,8 @@ export function processFrameJS(imageData, faces) {
     const LEFT_IRIS_INDICES = [468, 469, 470, 471, 472];
     const RIGHT_IRIS_INDICES = [473, 474, 475, 476, 477];
     const LOWER_LIP_CENTER_INDEX = 17;
+    const LEFT_FACE_EDGE_INDEX = 127;
+    const RIGHT_FACE_EDGE_INDEX = 356;
     const NORMALIZED_IMAGE_SIZE = 256;
     const EYE_DISTANCE = 96;
     
@@ -350,27 +357,68 @@ export function processFrameJS(imageData, faces) {
         // Overlay emoji on face
         const emojiData = EMOTION_TO_EMOJI[emotion.toLowerCase()];
         if (emojiData) {
-            // Canvas points: left eye, right eye, lower lip center
-            const canvasPoints = [
-                leftIrisCenter,
-                rightIrisCenter,
-                landmarkPoints[LOWER_LIP_CENTER_INDEX]
-            ];
-            
-            // Emoji source points
-            const emojiPoints = emojiData.points;
-            
-            // Overlay the emoji
-            overlayWarpAffine(
-                imageData.data,
-                width,
-                height,
-                emojiData.pixels,
-                EMOJI_WIDTH,
-                EMOJI_HEIGHT,
-                canvasPoints,
-                emojiPoints
-            );
+            if (aroundFaceCount > 0) {
+                // Flower mode: place emojis in a circle around the face
+                let faceWidth = getDistance(
+                    landmarkPoints[LEFT_FACE_EDGE_INDEX],
+                    landmarkPoints[RIGHT_FACE_EDGE_INDEX]
+                );
+                
+                faceWidth *= 1.2;
+                
+                // Place emojis in a circle around the face
+                for (let i = 0; i < aroundFaceCount; i++) {
+                    // Calculate position offset for circular placement
+                    const angle = i * 2 * Math.PI / aroundFaceCount;
+                    const offsetX = Math.cos(angle) * faceWidth;
+                    const offsetY = Math.sin(angle) * faceWidth;
+                    
+                    // Canvas points: left eye, right eye, lower lip center (with circular offset)
+                    const canvasPoints = [
+                        { x: leftIrisCenter.x + offsetX, y: leftIrisCenter.y + offsetY },
+                        { x: rightIrisCenter.x + offsetX, y: rightIrisCenter.y + offsetY },
+                        { x: landmarkPoints[LOWER_LIP_CENTER_INDEX].x + offsetX, 
+                          y: landmarkPoints[LOWER_LIP_CENTER_INDEX].y + offsetY }
+                    ];
+                    
+                    // Emoji source points
+                    const emojiPoints = emojiData.points;
+                    
+                    // Overlay the emoji
+                    overlayWarpAffine(
+                        imageData.data,
+                        width,
+                        height,
+                        emojiData.pixels,
+                        EMOJI_WIDTH,
+                        EMOJI_HEIGHT,
+                        canvasPoints,
+                        emojiPoints
+                    );
+                }
+            } else {
+                // Normal mode: place emoji directly on face
+                const canvasPoints = [
+                    leftIrisCenter,
+                    rightIrisCenter,
+                    landmarkPoints[LOWER_LIP_CENTER_INDEX]
+                ];
+                
+                // Emoji source points
+                const emojiPoints = emojiData.points;
+                
+                // Overlay the emoji
+                overlayWarpAffine(
+                    imageData.data,
+                    width,
+                    height,
+                    emojiData.pixels,
+                    EMOJI_WIDTH,
+                    EMOJI_HEIGHT,
+                    canvasPoints,
+                    emojiPoints
+                );
+            }
         }
     }
     

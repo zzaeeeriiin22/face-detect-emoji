@@ -198,6 +198,26 @@
                     JavaScript
                 </label>
             </div>
+            <div style="margin-top: 16px;">
+                <label style="color: var(--color-text); font-size: 14px; margin-right: 12px;">
+                    표시 모드:
+                </label>
+                <label style="margin-right: 16px; color: var(--color-text);">
+                    <input type="radio" name="displayMode" value="normal" checked style="margin-right: 4px;">
+                    얼굴 필터 모드
+                </label>
+                <label style="color: var(--color-text);">
+                    <input type="radio" name="displayMode" value="flower" style="margin-right: 4px;">
+                    꽃모양 얼굴 모드
+                </label>
+            </div>
+            <div style="margin-top: 16px;">
+                <label style="color: var(--color-text); font-size: 14px; margin-right: 12px;">
+                    꽃 갯수: <span id="flowerCountValue">10</span>
+                </label>
+                <input type="range" id="flowerCountSlider" min="5" max="20" value="10" 
+                       style="width: 200px; vertical-align: middle;">
+            </div>
         </div>
 
         <div class="stats">
@@ -246,6 +266,8 @@
             wasmReady: false,
             jsBackendReady: false,
             currentBackend: 'wasm',
+            displayMode: 'normal',  // 'normal' or 'flower'
+            flowerCount: 10,  // 5-20
             // WASM 메모리 풀링
             wasmMemory: {
                 imagePtr: null,
@@ -356,6 +378,20 @@
                 // }
             });
         });
+        
+        // 표시 모드 선택 이벤트 리스너
+        document.querySelectorAll('input[name="displayMode"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                window.appState.displayMode = this.value;
+                console.log('표시 모드 변경:', window.appState.displayMode);
+            });
+        });
+        
+        // 꽃 갯수 슬라이더 이벤트 리스너
+        document.getElementById('flowerCountSlider').addEventListener('input', function() {
+            window.appState.flowerCount = parseInt(this.value);
+            document.getElementById('flowerCountValue').textContent = this.value;
+        });
 
         function processFrameWASM(imageData, faces) {
             if (!window.appState.wasmReady || !window.appState.expressionModule) {
@@ -402,12 +438,13 @@
             }
 
             // ccall에 대해서만 레이턴시 측정
+            const aroundFaceCount = window.appState.displayMode === 'flower' ? window.appState.flowerCount : 0;
             const ccallStart = performance.now();
             Module.ccall(
                 'process_frame',
                 null,
-                ['number', 'number', 'number', 'number', 'number'],
-                [mem.imagePtr, width, height, mem.landmarksPtr, numFaces]
+                ['number', 'number', 'number', 'number', 'number', 'number'],
+                [mem.imagePtr, width, height, mem.landmarksPtr, numFaces, aroundFaceCount]
             );
             const ccallLatency = performance.now() - ccallStart;
 
@@ -542,8 +579,9 @@
                         ccallLatency = result.latency;
                     } else if (window.appState && window.appState.currentBackend === 'js' && window.appState.jsBackendReady) {
                         // JS 백엔드: 감정 인식 및 emoji 오버레이
+                        const aroundFaceCount = window.appState.displayMode === 'flower' ? window.appState.flowerCount : 0;
                         const jsStart = performance.now();
-                        const emotionResult = window.processFrameJS(imageData, results.faceLandmarks);
+                        const emotionResult = window.processFrameJS(imageData, results.faceLandmarks, aroundFaceCount);
                         ccallLatency = performance.now() - jsStart;
                         
                         if (emotionResult) {

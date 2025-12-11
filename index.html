@@ -3,87 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediaPipe Face Landmark Detector</title>
+    <title>Face Emotion Recognition System</title>
     <style>
-        :root {
-            --color-cream-50: rgba(252, 252, 249, 1);
-            --color-cream-100: rgba(255, 255, 253, 1);
-            --color-slate-900: rgba(19, 52, 59, 1);
-            --color-slate-500: rgba(98, 108, 113, 1);
-            --color-teal-500: rgba(33, 128, 141, 1);
-            --color-teal-600: rgba(29, 116, 128, 1);
-            --color-brown-600-rgb: 94, 82, 64;
-            --color-teal-500-rgb: 33, 128, 141;
-            
-            --color-background: var(--color-cream-50);
-            --color-surface: var(--color-cream-100);
-            --color-text: var(--color-slate-900);
-            --color-text-secondary: var(--color-slate-500);
-            --color-primary: var(--color-teal-500);
-            --color-primary-hover: var(--color-teal-600);
-            --color-border: rgba(var(--color-brown-600-rgb), 0.2);
-            --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --color-charcoal-700: rgba(31, 33, 33, 1);
-                --color-charcoal-800: rgba(38, 40, 40, 1);
-                --color-gray-200: rgba(245, 245, 245, 1);
-                --color-gray-300: rgba(167, 169, 169, 1);
-                --color-gray-400-rgb: 119, 124, 124;
-                --color-teal-300: rgba(50, 184, 198, 1);
-                --color-teal-400: rgba(45, 166, 178, 1);
-                
-                --color-background: var(--color-charcoal-700);
-                --color-surface: var(--color-charcoal-800);
-                --color-text: var(--color-gray-200);
-                --color-text-secondary: rgba(var(--color-gray-300), 0.7);
-                --color-primary: var(--color-teal-300);
-                --color-primary-hover: var(--color-teal-400);
-                --color-border: rgba(var(--color-gray-400-rgb), 0.3);
-                --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
-            }
-        }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1a2332;
+            --accent-primary: #00d4ff;
+            --accent-secondary: #7c3aed;
+            --accent-glow: rgba(0, 212, 255, 0.3);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(148, 163, 184, 0.1);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--color-background);
-            color: var(--color-text);
-            padding: 20px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #0f1419 100%);
+            color: var(--text-primary);
             line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.05) 0%, transparent 50%);
+            animation: rotate 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
         }
 
-        h1 {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 24px;
-            color: var(--color-text);
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Left side - Camera view */
+        .camera-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 8px;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .title-group h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .title-group p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .video-wrapper {
+            flex: 1;
+            position: relative;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .video-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            z-index: 2;
         }
 
         .video-container {
             position: relative;
-            background: var(--color-surface);
-            border: 1px solid var(--color-card-border);
-            border-radius: 12px;
-            overflow: hidden;
-            margin-bottom: 24px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
         }
 
         #webcam {
             width: 100%;
-            height: auto;
+            height: 100%;
+            object-fit: contain;
             display: block;
         }
 
@@ -95,164 +151,533 @@
             height: 100%;
         }
 
-        .controls {
-            background: var(--color-surface);
-            border: 1px solid var(--color-card-border);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background: var(--color-primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-right: 10px;
-        }
-
-        .btn:hover {
-            background: var(--color-primary-hover);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .stats {
-            background: var(--color-surface);
-            border: 1px solid var(--color-card-border);
-            border-radius: 12px;
-            padding: 20px;
-        }
-
-        .stat-item {
+        .video-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
             display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--color-border);
+            gap: 12px;
+            z-index: 10;
         }
 
-        .stat-item:last-child {
+        .overlay-badge {
+            padding: 8px 16px;
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Right sidebar - Controls and Stats */
+        .sidebar {
+            width: 380px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-section:last-child {
             border-bottom: none;
         }
 
-        .stat-label {
-            color: var(--color-text-secondary);
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 3px;
+            height: 12px;
+            background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 2px;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
             font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .radio-option {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .radio-option input[type="radio"] {
+            display: none;
+        }
+
+        .radio-option label {
+            display: block;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .radio-option input[type="radio"]:checked + label {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(124, 58, 237, 0.1));
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .slider-control {
+            margin-top: 8px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .slider-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent-primary);
+            padding: 4px 10px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px var(--accent-glow);
+            border: none;
+        }
+
+        /* Toggle Switch */
+        .toggle-control {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            transition: 0.4s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-muted);
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(124, 58, 237, 0.2));
+            border-color: var(--accent-primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-primary);
+            transform: translateX(4px);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
         .stat-value {
-            color: var(--color-text);
-            font-weight: 600;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-card.highlight .stat-value {
+            color: var(--accent-primary);
+        }
+
+        .stat-card.nested {
+            padding-left: 26px;
+            background: rgba(26, 35, 50, 0.5);
+        }
+
+        .stat-card.nested .stat-label::before {
+            content: '└';
+            margin-right: 6px;
+            color: var(--text-muted);
+        }
+
+        /* Error message */
+        .error-msg {
+            margin: 20px;
+            padding: 16px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            border-radius: 12px;
+            color: var(--error);
             font-size: 14px;
+            display: none;
         }
 
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: var(--color-text-secondary);
+        /* Scrollbar styling */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .error {
-            background: rgba(192, 21, 47, 0.1);
-            border: 1px solid rgba(192, 21, 47, 0.25);
-            color: rgba(192, 21, 47, 1);
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+        .sidebar::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .app-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+                max-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .camera-section {
+                padding: 12px;
+            }
+
+            .sidebar-section {
+                padding: 16px;
+            }
+
+            .header {
+                gap: 12px;
+            }
+
+            .logo {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+
+            .title-group h1 {
+                font-size: 18px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>MediaPipe Face Landmark Detector</h1>
-        
-        <div id="errorMsg" class="error" style="display: none;"></div>
-        
-        <div class="video-container">
-            <video id="webcam" autoplay playsinline></video>
-            <canvas id="canvas"></canvas>
-        </div>
+    <div class="app-container">
+        <!-- Left side - Camera view -->
+        <div class="camera-section">
+            <div class="header">
+                <div class="logo">🎭</div>
+                <div class="title-group">
+                    <h1>Face Emotion Recognition</h1>
+                    <p>Real-time AI-powered facial analysis</p>
+                </div>
+            </div>
 
-        <div class="controls">
-            <button id="startBtn" class="btn">카메라 시작</button>
-            <button id="stopBtn" class="btn" disabled>카메라 중지</button>
-            <div style="margin-top: 16px;">
-                <label style="color: var(--color-text); font-size: 14px; margin-right: 12px;">
-                    백엔드:
-                </label>
-                <label style="margin-right: 16px; color: var(--color-text);">
-                    <input type="radio" name="backend" value="wasm" checked style="margin-right: 4px;">
-                    WASM
-                </label>
-                <label style="color: var(--color-text);">
-                    <input type="radio" name="backend" value="js" style="margin-right: 4px;">
-                    JavaScript
-                </label>
-            </div>
-            <div style="margin-top: 16px;">
-                <label style="color: var(--color-text); font-size: 14px; margin-right: 12px;">
-                    표시 모드:
-                </label>
-                <label style="margin-right: 16px; color: var(--color-text);">
-                    <input type="radio" name="displayMode" value="normal" checked style="margin-right: 4px;">
-                    얼굴 필터 모드
-                </label>
-                <label style="color: var(--color-text);">
-                    <input type="radio" name="displayMode" value="flower" style="margin-right: 4px;">
-                    꽃모양 얼굴 모드
-                </label>
-            </div>
-            <div style="margin-top: 16px;">
-                <label style="color: var(--color-text); font-size: 14px; margin-right: 12px;">
-                    꽃 갯수: <span id="flowerCountValue">10</span>
-                </label>
-                <input type="range" id="flowerCountSlider" min="5" max="20" value="10" 
-                       style="width: 200px; vertical-align: middle;">
+            <div id="errorMsg" class="error-msg"></div>
+
+            <div class="video-wrapper">
+                <div class="video-overlay">
+                    <div class="overlay-badge">
+                        <span class="status-dot"></span>
+                        <span id="statusBadge">Standby</span>
+                    </div>
+                    <div class="overlay-badge">
+                        <span>🎯</span>
+                        <span id="faceCountBadge">0 faces</span>
+                    </div>
+                </div>
+                <div class="video-container">
+                    <video id="webcam" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
             </div>
         </div>
 
-        <div class="stats">
-            <div class="stat-item">
-                <span class="stat-label">상태</span>
-                <span class="stat-value" id="status">대기 중</span>
+        <!-- Right sidebar - Controls and Stats -->
+        <div class="sidebar">
+            <!-- Controls Section -->
+            <div class="sidebar-section">
+                <div class="section-title">Controls</div>
+                
+                <div class="control-group">
+                    <div class="button-group">
+                        <button id="startBtn" class="btn btn-primary">▶ Start Camera</button>
+                        <button id="stopBtn" class="btn btn-secondary" disabled>⏸ Stop</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Backend Engine</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" name="backend" value="wasm" id="backend-wasm" checked>
+                            <label for="backend-wasm">WASM</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="backend" value="js" id="backend-js">
+                            <label for="backend-js">JavaScript</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Display Mode</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" name="displayMode" value="normal" id="mode-normal" checked>
+                            <label for="mode-normal">Filter</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="displayMode" value="flower" id="mode-flower">
+                            <label for="mode-flower">Flower</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="slider-control">
+                        <div class="slider-header">
+                            <label class="control-label" style="margin: 0;">Flower Count</label>
+                            <span class="slider-value" id="flowerCountValue">10</span>
+                        </div>
+                        <input type="range" id="flowerCountSlider" min="5" max="20" value="10">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="toggle-control">
+                        <label class="control-label" style="margin: 0;">Show Landmarks</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="showLandmarksToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">FPS</span>
-                <span class="stat-value" id="fps">0</span>
+
+            <!-- Performance Stats Section -->
+            <div class="sidebar-section">
+                <div class="section-title">Performance</div>
+                <div class="stats-grid">
+                    <div class="stat-card highlight">
+                        <span class="stat-label">Status</span>
+                        <span class="stat-value" id="status">Standby</span>
+                    </div>
+                    <div class="stat-card highlight">
+                        <span class="stat-label">Latency</span>
+                        <span class="stat-value" id="latency">0 ms</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Backend</span>
+                        <span class="stat-value" id="backendType">WASM</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Processing Time</span>
+                        <span class="stat-value" id="processingTime">0 ms</span>
+                    </div>
+                    <div class="stat-card nested">
+                        <span class="stat-label">Transform</span>
+                        <span class="stat-value" id="landmarkTransformTime">0 ms</span>
+                    </div>
+                    <div class="stat-card nested">
+                        <span class="stat-label">Neural Net</span>
+                        <span class="stat-value" id="neuralNetworkTime">0 ms</span>
+                    </div>
+                    <div class="stat-card nested">
+                        <span class="stat-label">Emoji Overlay</span>
+                        <span class="stat-value" id="emojiOverlayTime">0 ms</span>
+                    </div>
+                </div>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">레이턴시</span>
-                <span class="stat-value" id="latency">0 ms</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">검출된 얼굴</span>
-                <span class="stat-value" id="faceCount">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">랜드마크 수</span>
-                <span class="stat-value" id="landmarkCount">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">감정</span>
-                <span class="stat-value" id="emotion">-</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">백엔드</span>
-                <span class="stat-value" id="backendType">WASM</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">처리 시간 (평균)</span>
-                <span class="stat-value" id="processingTime">0 ms</span>
-            </div>
+
         </div>
     </div>
 
@@ -268,12 +693,15 @@
             currentBackend: 'wasm',
             displayMode: 'normal',  // 'normal' or 'flower'
             flowerCount: 10,  // 5-20
+            showLandmarks: true,  // 랜드마크 시각화 여부
             // WASM 메모리 풀링
             wasmMemory: {
                 imagePtr: null,
                 imageSize: 0,
                 landmarksPtr: null,
                 landmarksSize: 0,
+                latencyTablePtr: null,
+                latencyTableSize: 0,
                 maxFaces: 5,  // MediaPipe 설정과 동일
                 maxLandmarks: 478  // MediaPipe face landmark 수
             }
@@ -331,6 +759,22 @@
                 }
             }
             
+            // 레이턴시 테이블 메모리 할당 (3개 int)
+            const latencyTableSize = 3 * Int32Array.BYTES_PER_ELEMENT;
+            if (!mem.latencyTablePtr || mem.latencyTableSize < latencyTableSize) {
+                // 기존 메모리 해제
+                if (mem.latencyTablePtr) {
+                    Module._free(mem.latencyTablePtr);
+                }
+                // 할당
+                mem.latencyTablePtr = Module._malloc(latencyTableSize);
+                mem.latencyTableSize = latencyTableSize;
+                if (!mem.latencyTablePtr) {
+                    console.error('레이턴시 테이블 메모리 할당 실패');
+                    return false;
+                }
+            }
+            
             return true;
         }
         
@@ -348,10 +792,15 @@
                     Module._free(mem.landmarksPtr);
                     mem.landmarksPtr = null;
                 }
+                if (mem.latencyTablePtr) {
+                    Module._free(mem.latencyTablePtr);
+                    mem.latencyTablePtr = null;
+                }
             }
             
             mem.imageSize = 0;
             mem.landmarksSize = 0;
+            mem.latencyTableSize = 0;
         }
 
         // WASM 모듈 초기화
@@ -392,18 +841,24 @@
             window.appState.flowerCount = parseInt(this.value);
             document.getElementById('flowerCountValue').textContent = this.value;
         });
+        
+        // 랜드마크 시각화 토글 이벤트 리스너
+        document.getElementById('showLandmarksToggle').addEventListener('change', function() {
+            window.appState.showLandmarks = this.checked;
+            console.log('랜드마크 시각화:', window.appState.showLandmarks ? '켜짐' : '꺼짐');
+        });
 
         function processFrameWASM(imageData, faces) {
             if (!window.appState.wasmReady || !window.appState.expressionModule) {
-                return { latency: 0, imageData: null };
+                return { latency: 0, imageData: null, latencyTable: [0, 0, 0] };
             }
 
             if (!faces || faces.length === 0) {
-                return { latency: 0, imageData: null };
+                return { latency: 0, imageData: null, latencyTable: [0, 0, 0] };
             }
 
             if (!imageData || !imageData.data) {
-                return { latency: 0, imageData: null };
+                return { latency: 0, imageData: null, latencyTable: [0, 0, 0] };
             }
 
             const width = imageData.width;
@@ -413,7 +868,7 @@
 
             // 메모리 풀에서 할당 (필요시에만 재할당)
             if (!allocateWASMMemory(width, height, numFaces, numLandmarks)) {
-                return { latency: 0, imageData: null };
+                return { latency: 0, imageData: null, latencyTable: [0, 0, 0] };
             }
 
             const mem = window.appState.wasmMemory;
@@ -443,10 +898,19 @@
             Module.ccall(
                 'process_frame',
                 null,
-                ['number', 'number', 'number', 'number', 'number', 'number'],
-                [mem.imagePtr, width, height, mem.landmarksPtr, numFaces, aroundFaceCount]
+                ['number', 'number', 'number', 'number', 'number', 'number', 'number'],
+                [mem.imagePtr, width, height, mem.landmarksPtr, numFaces, aroundFaceCount, mem.latencyTablePtr]
             );
             const ccallLatency = performance.now() - ccallStart;
+
+            // 레이턴시 테이블 읽기
+            const latencyTableHeap = Module.HEAP32;
+            const latencyTableOffset = mem.latencyTablePtr / Int32Array.BYTES_PER_ELEMENT;
+            const latencyTable = [
+                latencyTableHeap[latencyTableOffset],     // 랜드마크 변환 시간 (마이크로초)
+                latencyTableHeap[latencyTableOffset + 1], // 신경망 추론 시간 (마이크로초)
+                latencyTableHeap[latencyTableOffset + 2]  // Emoji 오버레이 시간 (마이크로초)
+            ];
 
             // WASM 메모리에서 직접 subarray 사용 (복사 최소화)
             const processedData = Module.HEAPU8.subarray(mem.imagePtr, mem.imagePtr + imageSize);
@@ -454,7 +918,7 @@
             // 기존 imageData.data를 직접 수정 (새로운 ImageData 생성 오버헤드 제거)
             imageData.data.set(processedData);
             
-            return { latency: ccallLatency, imageData: imageData };
+            return { latency: ccallLatency, imageData: imageData, latencyTable: latencyTable };
         }
         
         // 백엔드에 따라 적절한 함수 호출
@@ -485,9 +949,7 @@
         let faceLandmarker;
         let animationId;
         let lastVideoTime = -1;
-        let fpsHistory = [];
         let latencyHistory = [];
-        let lastFrameTime = performance.now();
 
         // MediaPipe 초기화
         async function initMediaPipe() {
@@ -507,7 +969,8 @@
                     numFaces: 5
                 });
 
-                document.getElementById('status').textContent = '모델 로드 완료';
+                document.getElementById('status').textContent = 'Ready';
+                document.getElementById('statusBadge').textContent = 'Ready';
                 startBtn.disabled = false;
             } catch (error) {
                 showError('MediaPipe 초기화 실패: ' + error.message);
@@ -517,39 +980,62 @@
         // 웹캠 시작
         async function startWebcam() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 1280, height: 720 }
-                });
+                // HTTPS 체크
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                    showError('Camera access requires HTTPS. Please use https:// or localhost');
+                    return;
+                }
+
+                // MediaDevices API 지원 체크
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showError('Your browser does not support camera access. Please use a modern browser (Chrome, Safari, Firefox)');
+                    return;
+                }
+
+                // 모바일 호환성을 위한 constraints
+                const constraints = {
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+                
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 
                 video.srcObject = stream;
                 video.addEventListener('loadeddata', () => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
-                    document.getElementById('status').textContent = '실행 중';
+                    document.getElementById('status').textContent = 'Running';
+                    document.getElementById('statusBadge').textContent = 'Active';
                     detectFaces();
                 });
 
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
             } catch (error) {
-                showError('카메라 접근 실패: ' + error.message);
+                let errorMessage = 'Camera access failed: ';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage += 'Permission denied. Please allow camera access in your browser settings.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage += 'No camera found on this device.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage += 'Camera is already in use by another application.';
+                } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+                    errorMessage += 'Camera does not meet the requirements.';
+                } else {
+                    errorMessage += error.message || 'Unknown error occurred.';
+                }
+                
+                showError(errorMessage);
             }
         }
 
         // 얼굴 감지 및 렌더링
         function detectFaces() {
             const currentTime = performance.now();
-            const frameTime = currentTime - lastFrameTime;
-            lastFrameTime = currentTime;
-            
-            // FPS 계산
-            if (frameTime > 0) {
-                const fps = 1000 / frameTime;
-                fpsHistory.push(fps);
-                if (fpsHistory.length > 30) fpsHistory.shift();
-                const avgFps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
-                document.getElementById('fps').textContent = avgFps.toFixed(1);
-            }
             
             if (video.currentTime !== lastVideoTime) {
                 lastVideoTime = video.currentTime;
@@ -568,6 +1054,7 @@
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     
                     let ccallLatency = 0;
+                    let latencyTable = [0, 0, 0];
                     
                     // 백엔드에 따라 처리
                     if (window.appState && window.appState.currentBackend === 'wasm') {
@@ -577,6 +1064,7 @@
                             ctx.putImageData(result.imageData, 0, 0);
                         }
                         ccallLatency = result.latency;
+                        latencyTable = result.latencyTable || [0, 0, 0];
                     } else if (window.appState && window.appState.currentBackend === 'js' && window.appState.jsBackendReady) {
                         // JS 백엔드: 감정 인식 및 emoji 오버레이
                         const aroundFaceCount = window.appState.displayMode === 'flower' ? window.appState.flowerCount : 0;
@@ -585,22 +1073,22 @@
                         ccallLatency = performance.now() - jsStart;
                         
                         if (emotionResult) {
-                            document.getElementById('emotion').textContent = 
-                                emotionResult.emotion + ' (' + emotionResult.confidence.toFixed(2) + ')';
                             // emoji가 오버레이된 imageData를 캔버스에 다시 그리기
                             ctx.putImageData(imageData, 0, 0);
+                            latencyTable = emotionResult.latencyTable || [0, 0, 0];
                         }
                     }
                     
                     // ccall 레이턴시 업데이트
-                    updateProcessFrameLatency(ccallLatency, results);
+                    updateProcessFrameLatency(ccallLatency, results, latencyTable);
                     
-                    // 랜드마크 그리기
-                    drawLandmarks(results.faceLandmarks);
+                    // 랜드마크 그리기 (토글 상태에 따라)
+                    if (window.appState.showLandmarks) {
+                        drawLandmarks(results.faceLandmarks);
+                    }
                 } else {
-                    document.getElementById('emotion').textContent = '-';
                     // 얼굴이 없을 때는 레이턴시를 0으로 업데이트
-                    updateProcessFrameLatency(0, results);
+                    updateProcessFrameLatency(0, results, [0, 0, 0]);
                 }
             }
 
@@ -644,7 +1132,7 @@
         }
 
         // processFrame 레이턴시 및 통계 업데이트
-        function updateProcessFrameLatency(latency, results) {
+        function updateProcessFrameLatency(latency, results, latencyTable = [0, 0, 0]) {
             latencyHistory.push(latency);
             if (latencyHistory.length > 30) latencyHistory.shift();
             
@@ -652,8 +1140,13 @@
             
             document.getElementById('latency').textContent = avgLatency.toFixed(1) + ' ms';
             document.getElementById('processingTime').textContent = avgLatency.toFixed(1) + ' ms';
-            document.getElementById('faceCount').textContent = results.faceLandmarks ? results.faceLandmarks.length : 0;
-            document.getElementById('landmarkCount').textContent = results.faceLandmarks && results.faceLandmarks.length > 0 ? results.faceLandmarks[0].length : 0;
+            const faceCountNum = results.faceLandmarks ? results.faceLandmarks.length : 0;
+            document.getElementById('faceCountBadge').textContent = faceCountNum + (faceCountNum === 1 ? ' face' : ' faces');
+            
+            // 레이턴시 테이블 표시 (밀리초 단위로 변환)
+            document.getElementById('landmarkTransformTime').textContent = (latencyTable[0] / 1000).toFixed(3) + ' ms';
+            document.getElementById('neuralNetworkTime').textContent = (latencyTable[1] / 1000).toFixed(3) + ' ms';
+            document.getElementById('emojiOverlayTime').textContent = (latencyTable[2] / 1000).toFixed(3) + ' ms';
         }
 
         // 웹캠 중지
@@ -668,18 +1161,15 @@
             }
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('status').textContent = '중지됨';
+            document.getElementById('status').textContent = 'Stopped';
+            document.getElementById('statusBadge').textContent = 'Stopped';
+            document.getElementById('faceCountBadge').textContent = '0 faces';
             startBtn.disabled = false;
             stopBtn.disabled = true;
             
             // 통계 초기화
-            document.getElementById('fps').textContent = '0';
             document.getElementById('latency').textContent = '0 ms';
-            document.getElementById('faceCount').textContent = '0';
-            document.getElementById('landmarkCount').textContent = '0';
-            document.getElementById('emotion').textContent = '-';
             
-            fpsHistory = [];
             latencyHistory = [];
             
             // WASM 메모리 정리 (선택적 - 재사용을 위해 유지할 수도 있음)
@@ -689,16 +1179,40 @@
         function showError(message) {
             errorMsg.textContent = message;
             errorMsg.style.display = 'block';
-            document.getElementById('status').textContent = '오류';
+            document.getElementById('status').textContent = 'Error';
+            document.getElementById('statusBadge').textContent = 'Error';
         }
 
         // 이벤트 리스너
         startBtn.addEventListener('click', startWebcam);
         stopBtn.addEventListener('click', stopWebcam);
 
+        // 브라우저 호환성 체크
+        function checkBrowserCompatibility() {
+            // HTTPS 체크 (localhost는 예외)
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                showError('⚠️ HTTPS Required: Camera access requires a secure connection (https://). Please use HTTPS or localhost.');
+                startBtn.disabled = true;
+                return false;
+            }
+
+            // MediaDevices API 지원 체크
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError('⚠️ Browser Not Supported: Your browser does not support camera access. Please use Chrome, Safari, or Firefox.');
+                startBtn.disabled = true;
+                return false;
+            }
+
+            return true;
+        }
+
         // 초기화
-        document.getElementById('status').textContent = '모델 로딩 중...';
-        initMediaPipe();
+        document.getElementById('status').textContent = 'Loading...';
+        document.getElementById('statusBadge').textContent = 'Loading...';
+        
+        if (checkBrowserCompatibility()) {
+            initMediaPipe();
+        }
     </script>
 </body>
 </html>

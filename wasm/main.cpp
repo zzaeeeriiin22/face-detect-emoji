@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 
 #include "emoji.h"
 #include "geometry.h"
@@ -23,10 +24,13 @@ extern "C" {
         int image_height,
         const float* face_landmarks,
         int num_faces,
-        unsigned int around_face_count) {
+        unsigned int around_face_count,
+        int* latency_table) {
 
         for (int face_index = 0; face_index < num_faces; face_index++) {
             const float* one_face_landmarks = &face_landmarks[face_index * NUM_FACE_LANDMARKS * 2];
+
+            auto start = std::chrono::high_resolution_clock::now();
 
             std::vector<geo::Point> landmark_points;
             landmark_points.reserve(NUM_FACE_LANDMARKS);
@@ -77,9 +81,15 @@ extern "C" {
                 landmark_points,
                 partial_affine_matrix);
 
+            auto end = std::chrono::high_resolution_clock::now();
+            latency_table[0] = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+            start = std::chrono::high_resolution_clock::now();
             float* input = reinterpret_cast<float*>(normalized_points.data());
             float output[OUTPUT_DIM];
             forward(input, output);
+            end = std::chrono::high_resolution_clock::now();
+            latency_table[1] = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
             int max_index = std::max_element(output, output + OUTPUT_DIM) - output;
 
@@ -96,6 +106,7 @@ extern "C" {
                 &emoji::SURPRISE_POINTS
             };
 
+            start = std::chrono::high_resolution_clock::now();
             if (around_face_count > 0) {
                 float face_width = geo::getDistance(
                     landmark_points[LEFT_FACE_EDGE_INDEX],
@@ -143,6 +154,8 @@ extern "C" {
                     canvas_points,
                     *emoji_points[max_index]);
             }
+            end = std::chrono::high_resolution_clock::now();
+            latency_table[2] = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
         }
     }
 }

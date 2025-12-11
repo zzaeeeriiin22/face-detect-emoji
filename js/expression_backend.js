@@ -280,6 +280,11 @@ export function processFrameJS(imageData, faces, aroundFaceCount = 0) {
     const width = imageData.width;
     const height = imageData.height;
     
+    // Latency tracking (in microseconds for consistency with WASM)
+    let landmarkTransformTime = 0;
+    let neuralNetworkTime = 0;
+    let emojiOverlayTime = 0;
+    
     // Constants for face alignment
     const LEFT_IRIS_INDICES = [468, 469, 470, 471, 472];
     const RIGHT_IRIS_INDICES = [473, 474, 475, 476, 477];
@@ -295,6 +300,9 @@ export function processFrameJS(imageData, faces, aroundFaceCount = 0) {
     // Process each face
     for (let faceIndex = 0; faceIndex < faces.length; faceIndex++) {
         const landmarks = faces[faceIndex];
+        
+        // Landmark transformation (start timing)
+        const transformStart = performance.now();
         
         // Convert normalized landmarks to pixel coordinates
         const landmarkPoints = landmarks.map(lm => ({
@@ -330,8 +338,13 @@ export function processFrameJS(imageData, faces, aroundFaceCount = 0) {
             input[i * 2 + 1] = normalizedPoints[i].y;
         }
         
-        // Run inference
+        // End landmark transformation timing
+        landmarkTransformTime += (performance.now() - transformStart) * 1000; // Convert to microseconds
+        
+        // Neural network inference (start timing)
+        const inferenceStart = performance.now();
         const output = forward(input);
+        neuralNetworkTime += (performance.now() - inferenceStart) * 1000; // Convert to microseconds
         
         // Find max class
         let maxIndex = 0;
@@ -353,6 +366,9 @@ export function processFrameJS(imageData, faces, aroundFaceCount = 0) {
                 output: output
             };
         }
+        
+        // Emoji overlay (start timing)
+        const overlayStart = performance.now();
         
         // Overlay emoji on face
         const emojiData = EMOTION_TO_EMOJI[emotion.toLowerCase()];
@@ -420,9 +436,20 @@ export function processFrameJS(imageData, faces, aroundFaceCount = 0) {
                 );
             }
         }
+        
+        // End emoji overlay timing
+        emojiOverlayTime += (performance.now() - overlayStart) * 1000; // Convert to microseconds
     }
     
-    // Return emotion for the first face
+    // Return emotion for the first face with latency table
+    if (firstFaceEmotion) {
+        firstFaceEmotion.latencyTable = [
+            Math.round(landmarkTransformTime),
+            Math.round(neuralNetworkTime),
+            Math.round(emojiOverlayTime)
+        ];
+    }
+    
     return firstFaceEmotion;
 }
 
